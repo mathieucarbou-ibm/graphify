@@ -753,19 +753,24 @@ def build_merge(
     return G
 
 
-def prefix_graph_for_global(G: nx.Graph, repo_tag: str) -> nx.Graph:
+def prefix_graph_for_global(G: nx.Graph, repo_tag: str, project_root: str | Path | None = None) -> nx.Graph:
     """Return a copy of G with all node IDs prefixed with repo_tag::.
 
     Labels are preserved unchanged (for display). A 'local_id' attribute
     is added to each node so the original ID can be recovered. Edges are
     rewritten to match the new prefixed IDs. The 'repo' attribute is set
     on every node.
+    
+    If project_root is provided, it's added to each node's metadata so
+    AI agents can resolve relative source_file paths to absolute paths.
     """
     relabel = {n: f"{repo_tag}::{n}" for n in G.nodes}
     H = nx.relabel_nodes(G, relabel, copy=True)
     for node, data in H.nodes(data=True):
         data["repo"] = repo_tag
         data.setdefault("local_id", node.split("::", 1)[1])
+        if project_root:
+            data["project_root"] = str(Path(project_root).resolve())
     return H
 
 

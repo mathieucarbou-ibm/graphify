@@ -608,6 +608,11 @@ _PLATFORM_CONFIG: dict[str, dict] = {
         "skill_dst": Path(".config") / "devin" / "skills" / "graphify" / "SKILL.md",
         "claude_md": False,
     },
+    "bob": {
+      "skill_file": "skill-bob.md",
+      "skill_dst": Path(".bob") / "commands" / "graphify.md",
+      "claude_md": False,
+    },
 }
 
 # CLI-only platform aliases, resolved to a real _PLATFORM_CONFIG key before
@@ -768,6 +773,9 @@ def install(platform: str = "claude", *, project: bool = False, project_dir: Pat
     if platform == "opencode":
         _install_opencode_plugin(project_dir if project else Path("."))
 
+    if platform == "bob":
+        bob_install(Path("."))
+
     # Refresh version stamps in all other previously-installed skill dirs so
     # stale-version warnings don't fire for platforms not explicitly re-installed.
     if project:
@@ -797,10 +805,26 @@ _CLAUDE_MD_MARKER = "## graphify"
 
 _CODEBUDDY_MD_MARKER = "## graphify"
 
+# BOB.md section for Bob AI assistant
+_BOB_MD_SECTION = """\
+## graphify
+
+This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
+
+Rules:
+- ALWAYS read graphify-out/GRAPH_REPORT.md before reading any source files, running grep/glob searches, or answering codebase questions. The graph is your primary map of the codebase.
+- IF graphify-out/wiki/index.md EXISTS, navigate it instead of reading raw files
+- For cross-module "how does X relate to Y" questions, prefer `graphify query "<question>"`, `graphify path "<A>" "<B>"`, or `graphify explain "<concept>"` over grep — these traverse the graph's EXTRACTED + INFERRED edges instead of scanning files
+- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
+"""
+
+_BOB_MD_MARKER = "## graphify"
+
 # AGENTS.md section for Codex, OpenCode, and OpenClaw.
 # All three platforms read AGENTS.md in the project root for persistent instructions.
 
 _AGENTS_MD_MARKER = "## graphify"
+_AGENTS_MD_SECTION = _BOB_MD_SECTION
 
 
 _GEMINI_MD_MARKER = "## graphify"
@@ -1960,6 +1984,7 @@ def uninstall_all(project_dir: Path | None = None, purge: bool = False) -> None:
     print("Uninstalling graphify from all detected platforms...\n")
 
     # Skill-file / config-section uninstallers
+    bob_uninstall(pd)
     claude_uninstall(pd)
     codebuddy_uninstall(pd)
     gemini_uninstall(pd)
@@ -2034,6 +2059,58 @@ def claude_uninstall(project_dir: Path | None = None, *, project: bool = False) 
         print(f"CLAUDE.md was empty after removal - deleted {target.resolve()}")
 
     _uninstall_claude_hook(project_dir or Path("."))
+
+def bob_install(project_dir: Path | None = None) -> None:
+    """Write the graphify section to global ~/.bob/AGENTS.md only."""
+    # Write to global ~/.bob/AGENTS.md
+    global_agents = Path.home() / ".bob" / "AGENTS.md"
+    if global_agents.exists():
+        content = global_agents.read_text(encoding="utf-8")
+        if _AGENTS_MD_MARKER not in content:
+            global_agents.write_text(content.rstrip() + "\n\n" + _AGENTS_MD_SECTION, encoding="utf-8")
+            print(f"graphify section written to {global_agents}")
+        else:
+            print(f"graphify already configured in {global_agents}")
+    else:
+        global_agents.parent.mkdir(parents=True, exist_ok=True)
+        global_agents.write_text(_AGENTS_MD_SECTION, encoding="utf-8")
+        print(f"graphify section written to {global_agents}")
+
+    print()
+    print("Bob will now check the knowledge graph before answering")
+    print("codebase questions and rebuild it after code changes.")
+
+
+def bob_uninstall(project_dir: Path | None = None) -> None:
+    """Remove the graphify command file and section from ~/.bob/AGENTS.md."""
+    # Remove the command file from ~/.bob/commands/
+    command_file = Path.home() / ".bob" / "commands" / "graphify.md"
+    if command_file.exists():
+        command_file.unlink()
+        print(f"Removed command file: {command_file}")
+
+    # Remove version stamp
+    version_file = command_file.parent / ".graphify_version"
+    if version_file.exists():
+        version_file.unlink()
+
+    # Remove the graphify section from global ~/.bob/AGENTS.md
+    global_agents = Path.home() / ".bob" / "AGENTS.md"
+    if global_agents.exists():
+        content = global_agents.read_text(encoding="utf-8")
+        if _AGENTS_MD_MARKER in content:
+            cleaned = re.sub(
+                r"\n*## graphify\n.*?(?=\n## |\Z)",
+                "",
+                content,
+                flags=re.DOTALL,
+            ).rstrip()
+            if cleaned:
+                global_agents.write_text(cleaned + "\n", encoding="utf-8")
+                print(f"graphify section removed from {global_agents}")
+            else:
+                global_agents.unlink()
+                print(f"{global_agents} was empty after removal - deleted")
 
 
 def codebuddy_install(project_dir: Path | None = None) -> None:
@@ -2221,13 +2298,15 @@ def main() -> None:
         print("Usage: graphify <command>")
         print()
         print("Commands:")
-        print("  install [--platform P]  copy skill to platform config dir (claude|windows|codebuddy|codex|opencode|aider|amp|agents|claw|droid|trae|trae-cn|gemini|cursor|antigravity|hermes|kiro|pi|devin)")
+        print("  install [--platform P]  copy skill to platform config dir (bob|claude|windows|codebuddy|codex|opencode|aider|amp|agents|claw|droid|trae|trae-cn|gemini|cursor|antigravity|hermes|kiro|pi|devin)")
         print("  uninstall               remove graphify from all detected platforms in one shot")
         print("    --purge                 also delete graphify-out/ directory")
         print("  path \"A\" \"B\"            shortest path between two nodes in graph.json")
         print("    --graph <path>          path to graph.json (default graphify-out/graph.json)")
+        print("    --global                use global graph at ~/.graphify/global-graph.json")
         print("  explain \"X\"             plain-language explanation of a node and its neighbors")
         print("    --graph <path>          path to graph.json (default graphify-out/graph.json)")
+        print("    --global                use global graph at ~/.graphify/global-graph.json")
         print("  diagnose multigraph    report same-endpoint edge collapse risk in graph.json")
         print("    --graph <path>          path to graph/extraction JSON")
         print("                            (default graphify-out/graph.json)")
@@ -2272,10 +2351,12 @@ def main() -> None:
         print("    --context C             explicit edge-context filter (repeatable)")
         print("    --budget N              cap output at N tokens (default 2000)")
         print("    --graph <path>          path to graph.json (default graphify-out/graph.json)")
+        print("    --global                use global graph at ~/.graphify/global-graph.json")
         print("  affected \"X\"             reverse traversal to find nodes impacted by X")
         print("    --relation R            edge relation to traverse in reverse (repeatable)")
         print("    --depth N               reverse traversal depth (default 2)")
         print("    --graph <path>          path to graph.json (default graphify-out/graph.json)")
+        print("    --global                use global graph at ~/.graphify/global-graph.json")
         print("  save-result             save a Q&A result to graphify-out/memory/ for graph feedback loop")
         print("    --question Q            the question asked")
         print("    --answer A              the answer to save")
@@ -2334,6 +2415,8 @@ def main() -> None:
         print("  hook install            install post-commit/post-checkout git hooks (all platforms)")
         print("  hook uninstall          remove git hooks")
         print("  hook status             check if git hooks are installed")
+        print("  bob install             write graphify section to BOB.md (Bob)")
+        print("  bob uninstall           remove graphify section from BOB.md")
         print(
             "  gemini install          write GEMINI.md section + BeforeTool hook (Gemini CLI)"
         )
@@ -2505,6 +2588,15 @@ def main() -> None:
                 claude_uninstall()
         else:
             print("Usage: graphify claude [install|uninstall]", file=sys.stderr)
+            sys.exit(1)
+    elif cmd == "bob":
+        subcmd = sys.argv[2] if len(sys.argv) > 2 else ""
+        if subcmd == "install":
+            bob_install()
+        elif subcmd == "uninstall":
+            bob_uninstall()
+        else:
+            print("Usage: graphify bob [install|uninstall]", file=sys.stderr)
             sys.exit(1)
     elif cmd == "codebuddy":
         subcmd = sys.argv[2] if len(sys.argv) > 2 else ""
@@ -2808,15 +2900,17 @@ def main() -> None:
             sys.exit(1)
     elif cmd == "query":
         if len(sys.argv) < 3:
-            print("Usage: graphify query \"<question>\" [--dfs] [--context C] [--budget N] [--graph path]", file=sys.stderr)
+            print("Usage: graphify query \"<question>\" [--dfs] [--context C] [--budget N] [--graph path] [--global]", file=sys.stderr)
             sys.exit(1)
         from graphify.serve import _query_graph_text
         from graphify.security import sanitize_label
         from networkx.readwrite import json_graph
         from graphify import querylog
+        from graphify.global_graph import global_path
 
         question = sys.argv[2]
         use_dfs = "--dfs" in sys.argv
+        use_global = "--global" in sys.argv
         budget = 2000
         graph_path = _default_graph_path()
         context_filters: list[str] = []
@@ -2846,8 +2940,14 @@ def main() -> None:
             elif args[i] == "--graph" and i + 1 < len(args):
                 graph_path = args[i + 1]
                 i += 2
+            elif args[i] == "--global":
+                i += 1
             else:
                 i += 1
+
+        # Use global graph if --global flag is present
+        if use_global:
+            graph_path = str(global_path())
         gp = Path(graph_path).resolve()
         if not gp.exists():
             print(f"error: graph file not found: {gp}", file=sys.stderr)
@@ -2905,10 +3005,12 @@ def main() -> None:
         print(_result)
     elif cmd == "affected":
         if len(sys.argv) < 3:
-            print("Usage: graphify affected \"<node-or-label>\" [--relation R] [--depth N] [--graph path]", file=sys.stderr)
+            print("Usage: graphify affected \"<node-or-label>\" [--relation R] [--depth N] [--graph path] [--global]", file=sys.stderr)
             sys.exit(1)
         from graphify.affected import DEFAULT_AFFECTED_RELATIONS, format_affected, load_graph
+        from graphify.global_graph import global_path
         query = sys.argv[2]
+        use_global = "--global" in sys.argv
         graph_path = _default_graph_path()
         depth = 2
         relations: list[str] = []
@@ -2920,6 +3022,8 @@ def main() -> None:
                 i += 2
             elif args[i].startswith("--graph="):
                 graph_path = args[i].split("=", 1)[1]
+                i += 1
+            elif args[i] == "--global":
                 i += 1
             elif args[i] == "--depth" and i + 1 < len(args):
                 try:
@@ -2943,6 +3047,11 @@ def main() -> None:
                 i += 1
             else:
                 i += 1
+
+        # Use global graph if --global flag is present
+        if use_global:
+            graph_path = str(global_path())
+
         gp = Path(graph_path).resolve()
         if not gp.exists():
             print(f"error: graph file not found: {gp}", file=sys.stderr)
@@ -3049,21 +3158,29 @@ def main() -> None:
     elif cmd == "path":
         if len(sys.argv) < 4:
             print(
-                'Usage: graphify path "<source>" "<target>" [--graph path]',
+                'Usage: graphify path "<source>" "<target>" [--graph path] [--global]',
                 file=sys.stderr,
             )
             sys.exit(1)
         from graphify.serve import _score_nodes
         from networkx.readwrite import json_graph
+        from graphify.global_graph import global_path
         import networkx as _nx
 
         source_label = sys.argv[2]
         target_label = sys.argv[3]
+        use_global = "--global" in sys.argv
         graph_path = _default_graph_path()
         args = sys.argv[4:]
         for i, a in enumerate(args):
             if a == "--graph" and i + 1 < len(args):
                 graph_path = args[i + 1]
+            elif a == "--global":
+                pass  # already handled above
+
+        # Use global graph if --global flag is present
+        if use_global:
+            graph_path = str(global_path())
         gp = Path(graph_path).resolve()
         if not gp.exists():
             print(f"error: graph file not found: {gp}", file=sys.stderr)

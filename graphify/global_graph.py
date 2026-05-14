@@ -89,6 +89,9 @@ def global_add(source_path: Path, repo_tag: str) -> dict:
     src_hash = _file_hash(source_path)
 
     existing = manifest["repos"].get(repo_tag, {})
+    # Backward compatibility: derive project_root if not present
+    if existing and "project_root" not in existing and "source_path" in existing:
+        existing["project_root"] = str(Path(existing["source_path"]).parent.parent)
     existing_path = existing.get("source_path", "")
     if existing_path and existing_path != str(source_path.resolve()):
         print(
@@ -111,8 +114,12 @@ def global_add(source_path: Path, repo_tag: str) -> dict:
     except TypeError:
         src_G = _jg.node_link_graph(data)
 
+    # Derive project root from source_path
+    # Assumes structure: project_root/graphify-out/graph.json
+    project_root = source_path.parent.parent
+
     # Prefix IDs for cross-project isolation
-    prefixed = prefix_graph_for_global(src_G, repo_tag)
+    prefixed = prefix_graph_for_global(src_G, repo_tag, project_root)
 
     # Load global graph and prune stale nodes for this repo
     G = _load_global_graph()
@@ -147,6 +154,7 @@ def global_add(source_path: Path, repo_tag: str) -> dict:
     manifest["repos"][repo_tag] = {
         "added_at": datetime.now(timezone.utc).isoformat(),
         "source_path": str(source_path.resolve()),
+        "project_root": str(project_root.resolve()),
         "node_count": added,
         "edge_count": prefixed.number_of_edges(),
         "source_hash": src_hash,
@@ -176,6 +184,29 @@ def global_remove(repo_tag: str) -> int:
 def global_list() -> dict:
     """Return the manifest repos dict."""
     return _load_manifest().get("repos", {})
+
+
+def resolve_node_path(node_data: dict) -> Path | None:
+    """Resolve a node's source_file to an absolute path.
+    
+    Args:
+        node_data: Node attributes dict from the global graph
+        
+    Returns:
+        Absolute Path to the source file, or None if not resolvable
+        
+    Example:
+        >>> node = G.nodes["myproject::src_main_py"]
+        >>> path = resolve_node_path(node)
+        >>> print(path)  # /absolute/path/to/myproject/src/main.py
+    """
+    project_root = node_data.get("project_root")
+    source_file = node_data.get("source_file")
+    
+    if not project_root or not source_file:
+        return None
+    
+    return Path(project_root) / source_file
 
 
 def global_path() -> Path:

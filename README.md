@@ -28,6 +28,8 @@ Type `/graphify` in your AI coding assistant and it maps your entire project —
 
 Works in Claude Code, Codex, OpenCode, Kilo Code, Cursor, Gemini CLI, GitHub Copilot CLI, VS Code Copilot Chat, Aider, Amp, OpenClaw, Factory Droid, Trae, Hermes, Kimi Code, Kiro, Pi, Devin CLI, and Google Antigravity.
 
+Also works with IBM Bob.
+
 ```
 /graphify .
 ```
@@ -128,6 +130,7 @@ for example `graphify claude install --project` or `graphify codex install --pro
 
 | Platform | Install command |
 |----------|----------------|
+| Bob | `graphify install --platform bob` |
 | Claude Code (Linux/Mac) | `graphify install` |
 | Claude Code (Windows) | `graphify install` (auto-detected) or `graphify install --platform windows` |
 | CodeBuddy | `graphify install --platform codebuddy` |
@@ -194,6 +197,7 @@ Run this once in your project after building a graph:
 
 | Platform | Command |
 |----------|---------|
+| Bob | `graphify bob install` |
 | Claude Code | `graphify claude install` |
 | CodeBuddy | `graphify codebuddy install` |
 | Codex | `graphify codex install` |
