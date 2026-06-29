@@ -202,7 +202,9 @@ for f in detect.get("files", {}).get("code", []):
 if code_files:
     result = extract(code_files, cache_root=Path("INPUT_PATH"))
     Path("graphify-out/.graphify_ast.json").write_text(json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8")
-    print(f"AST: {len(result[\"nodes\"])} nodes, {len(result[\"edges\"])} edges")
+    num_nodes = len(result["nodes"])
+    num_edges = len(result["edges"])
+    print(f"AST: {num_nodes} nodes, {num_edges} edges")
 else:
     Path("graphify-out/.graphify_ast.json").write_text(json.dumps({"nodes":[],"edges":[],"input_tokens":0,"output_tokens":0}, ensure_ascii=False), encoding="utf-8")
     print("No code files - skipping AST extraction")
@@ -274,7 +276,9 @@ else:
     result = extract_corpus_parallel(files, backend="gemini" if "GEMINI_API_KEY" in __import__("os").environ or "GOOGLE_API_KEY" in __import__("os").environ else None)
     
     Path("graphify-out/.graphify_semantic_new.json").write_text(json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8")
-    print(f"Semantic: {len(result[\"nodes\"])} nodes, {len(result[\"edges\"])} edges")
+    num_nodes = len(result["nodes"])
+    num_edges = len(result["edges"])
+    print(f"Semantic: {num_nodes} nodes, {num_edges} edges")
 '
 ```
 
@@ -310,7 +314,9 @@ merged = {
     "output_tokens": new.get("output_tokens", 0),
 }
 Path("graphify-out/.graphify_semantic.json").write_text(json.dumps(merged, indent=2, ensure_ascii=False), encoding="utf-8")
-print(f"Total semantic: {len(merged[\"nodes\"])} nodes, {len(merged[\"edges\"])} edges")
+num_nodes = len(merged["nodes"])
+num_edges = len(merged["edges"])
+print(f"Total semantic: {num_nodes} nodes, {num_edges} edges")
 '
 ```
 
@@ -344,7 +350,9 @@ merged = {
 Path("graphify-out/.graphify_extract.json").write_text(json.dumps(merged, indent=2, ensure_ascii=False), encoding="utf-8")
 total = len(merged_nodes)
 edges = len(merged_edges)
-print(f"Merged: {total} nodes, {edges} edges ({len(ast[\"nodes\"])} AST + {len(sem[\"nodes\"])} semantic)")
+ast_nodes = len(ast["nodes"])
+sem_nodes = len(sem["nodes"])
+print(f"Merged: {total} nodes, {edges} edges ({ast_nodes} AST + {sem_nodes} semantic)")
 '
 ```
 
