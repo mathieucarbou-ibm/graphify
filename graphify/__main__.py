@@ -612,6 +612,7 @@ _PLATFORM_CONFIG: dict[str, dict] = {
       "skill_file": "skill-bob.md",
       "skill_dst": Path(".bob") / "commands" / "graphify.md",
       "claude_md": False,
+      "skill_refs": "bob",
     },
 }
 

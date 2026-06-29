@@ -69,6 +69,8 @@ Use it for:
 
 If the user invoked `/graphify --help` or `/graphify -h` (with no other arguments), print the contents of the `## Usage` section above verbatim and stop. Do not run any commands, do not detect files, do not default the path to `.`. Just print the Usage block and return.
 
+**Fast path — existing graph:** Before doing anything else, check whether `graphify-out/graph.json` exists. The expected location is `graphify-out/graph.json` relative to the **current working directory** (i.e. the project root where you are running commands). If it exists AND the user's request is a natural-language question about the codebase (e.g. "How does X work?", "What calls Y?", "Trace the data flow through Z") and NOT an explicit rebuild command (`--update`, `--cluster-only`, or a bare path/URL that implies fresh extraction): **skip Steps 1–5 entirely and jump straight to `## For /graphify query`.** Run `graphify query "<question>"` immediately. Do not run detect. Do not check corpus size. Do not ask the user to narrow. The graph is already built — use it.
+
 If no path was given, use `.` (current directory). Do not ask the user for a path.
 
 If the path argument starts with `https://github.com/` or `http://github.com/`, treat it as a GitHub URL - run Step 0 before anything else, then continue with the resolved local path.
@@ -179,7 +181,7 @@ Then act on it:
 
 ### Step 2.5 - Video and audio (only if video files detected)
 
-Skip this step entirely if `detect` returned zero `video` files. When the corpus has video or audio, see `references/transcribe.md` to transcribe them to text first, then treat the transcripts as doc files in Step 3.
+Skip this step entirely if `detect` returned zero `video` files. When the corpus has video or audio, see `graphify/skills/bob/references/transcribe.md` to transcribe them to text first, then treat the transcripts as doc files in Step 3.
 
 ### Step 3 - Extract entities and relationships
 
@@ -516,7 +518,59 @@ graphify export html  # auto-aggregates to community view if graph > 5000 nodes
 
 ### Steps 6b-8 - Wiki, Neo4j, FalkorDB, SVG, GraphML, MCP, benchmark (only on their flags)
 
-These run only when their flag is present (`--wiki`, `--neo4j`/`--neo4j-push`, `--falkordb`/`--falkordb-push`, `--svg`, `--graphml`, `--mcp`) or, for the token-reduction benchmark, when `total_words` exceeds 5,000. A default run with no export flags skips all of them. See `references/exports.md` for each one. Run any `--wiki` export before Step 9 cleanup so `.graphify_labels.json` is still available.
+These run only when their flag is present (`--wiki`, `--neo4j`/`--neo4j-push`, `--falkordb`/`--falkordb-push`, `--svg`, `--graphml`, `--mcp`) or, for the token-reduction benchmark, when `total_words` exceeds 5,000. A default run with no export flags skips all of them.
+
+**For --wiki:**
+```bash
+$(cat graphify-out/.graphify_python) -c '
+import sys, json
+from graphify.build import build_from_json
+from graphify.wiki import to_wiki
+from pathlib import Path
+
+extraction = json.loads(Path("graphify-out/.graphify_extract.json").read_text(encoding="utf-8"))
+analysis   = json.loads(Path("graphify-out/.graphify_analysis.json").read_text(encoding="utf-8"))
+
+G = build_from_json(extraction, root="INPUT_PATH", directed=IS_DIRECTED)
+communities = {int(k): v for k, v in analysis["communities"].items()}
+labels = {int(k): "Community " + str(k) for k in communities}
+cohesion = {int(k): v for k, v in analysis.get("cohesion", {}).items()}
+god_nodes_data = analysis.get("gods", [])
+
+wiki_dir = Path("graphify-out/wiki")
+count = to_wiki(G, communities, wiki_dir, community_labels=labels, cohesion=cohesion, god_nodes_data=god_nodes_data)
+print(f"✓ Wiki generated: {count} articles + index.md in {wiki_dir}")
+'
+```
+
+**For --neo4j or --neo4j-push:**
+```bash
+graphify export neo4j
+# or: graphify export neo4j --push bolt://localhost:7687
+```
+
+**For --falkordb or --falkordb-push:**
+```bash
+graphify export falkordb
+# or: graphify export falkordb --push falkordb://localhost:6379
+```
+
+**For --svg:**
+```bash
+graphify export svg
+```
+
+**For --graphml:**
+```bash
+graphify export graphml
+```
+
+**For --mcp:**
+```bash
+graphify serve --mcp
+```
+
+Run any `--wiki` export before Step 9 cleanup so `.graphify_labels.json` is still available.
 
 ---
 
@@ -620,7 +674,29 @@ fi
 
 ## For --update and --cluster-only
 
-Both are non-default subcommands. `--update` re-extracts only new or changed files; `--cluster-only` reruns clustering on the existing graph. See `references/update.md` for both flows.
+Both are non-default subcommands. `--update` re-extracts only new or changed files; `--cluster-only` reruns clustering on the existing graph.
+
+**For --update:**
+
+Incremental update - re-extract only new or changed files since the last run:
+
+```bash
+graphify update
+# or: graphify update <path>
+```
+
+This compares the current file manifest against the saved one, extracts only changed files, and merges them into the existing graph.
+
+**For --cluster-only:**
+
+Rerun clustering on the existing graph without re-extraction:
+
+```bash
+graphify cluster-only
+# or: graphify cluster-only <path>
+```
+
+This is useful when you want to try different clustering parameters or regenerate community labels without the cost of re-extraction.
 
 ---
 
