@@ -515,8 +515,8 @@ from graphify.detect import save_manifest
 
 # Save manifest for --update
 detect = json.loads(Path("graphify-out/.graphify_detect.json").read_text(encoding="utf-8"))
-# In --update mode, '"'"'all_files'"'"' carries the full corpus; '"'"'files'"'"' is the changed
-# subset. Full-rebuild mode populates only '"'"'files'"'"', so the fallback handles that.
+# In --update mode, "all_files" carries the full corpus; "files" is the changed
+# subset. Full-rebuild mode populates only "files", so the fallback handles that.
 # root= relativizes the manifest keys to the scan root (same base as the build),
 # so the on-disk manifest is portable across clones/machines and a later --update
 # matches cached files instead of missing every one (#1417).
@@ -543,8 +543,11 @@ cost["total_input_tokens"] += input_tok
 cost["total_output_tokens"] += output_tok
 cost_path.write_text(json.dumps(cost, indent=2, ensure_ascii=False), encoding="utf-8")
 
+total_in = cost["total_input_tokens"]
+total_out = cost["total_output_tokens"]
+num_runs = len(cost["runs"])
 print(f"This run: {input_tok:,} input tokens, {output_tok:,} output tokens")
-print(f"All time: {cost[\"total_input_tokens\"]:,} input, {cost[\"total_output_tokens\"]:,} output ({len(cost[\"runs\"])} runs)")
+print(f"All time: {total_in:,} input, {total_out:,} output ({num_runs} runs)")
 '
 rm -f graphify-out/.graphify_detect.json graphify-out/.graphify_extract.json graphify-out/.graphify_ast.json graphify-out/.graphify_semantic.json graphify-out/.graphify_analysis.json
 find graphify-out -maxdepth 1 -name '.graphify_chunk_*.json' -delete 2>/dev/null
