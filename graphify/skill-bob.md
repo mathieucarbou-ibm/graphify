@@ -455,7 +455,30 @@ Substitute `IS_DIRECTED` and `INPUT_PATH` as in Step 4. If a `GRAPH HEALTH WARNI
 
 ### Step 5 - Label communities
 
-Read `graphify-out/.graphify_analysis.json`. For each community key, look at its node labels and write a 2-5 word plain-language name (e.g. "Attention Mechanism", "Training Pipeline", "Data Loading").
+First, analyze the communities to create meaningful labels. Use this code to sample and understand each community:
+
+```bash
+$(cat graphify-out/.graphify_python) -c '
+import json
+from pathlib import Path
+from collections import Counter
+
+analysis = json.loads(Path("graphify-out/.graphify_analysis.json").read_text(encoding="utf-8"))
+communities = analysis.get("communities", {})
+
+# Sample each community to understand its theme
+for cid_str, node_list in sorted(communities.items(), key=lambda x: len(x[1]), reverse=True)[:10]:
+    cid = int(cid_str)
+    size = len(node_list)
+    # Take first 10 nodes as sample
+    sample = node_list[:10]
+    print(f"\nCommunity {cid} ({size} nodes):")
+    for node in sample:
+        print(f"  - {node}")
+'
+```
+
+Based on the output above, create a dictionary of community labels. Each label should be 2-5 words describing the community theme (e.g. "Attention Mechanism", "Training Pipeline", "Data Loading").
 
 Then regenerate the report and save the labels for the visualizer:
 
