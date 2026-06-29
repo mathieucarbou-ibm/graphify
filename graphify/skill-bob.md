@@ -136,18 +136,26 @@ print(json.dumps(result, ensure_ascii=False))
 ' > graphify-out/.graphify_detect.json
 ```
 
-Replace INPUT_PATH with the actual path the user provided. Do NOT cat or print the JSON - read it silently and present a clean summary instead:
+Replace INPUT_PATH with the actual path the user provided. Then read the detection results and present a clean summary:
 
-```
-Corpus: X files · ~Y words
-  code:     N files (.py .ts .go ...)
-  docs:     N files (.md .txt ...)
-  papers:   N files (.pdf ...)
-  images:   N files
-  video:    N files (.mp4 .mp3 ...)
-```
+```bash
+$(cat graphify-out/.graphify_python) -c '
+import json
+from pathlib import Path
 
-Omit any category with 0 files from the summary.
+detect = json.loads(Path("graphify-out/.graphify_detect.json").read_text(encoding="utf-8"))
+total_files = detect.get("total_files", 0)
+total_words = detect.get("total_words", 0)
+files = detect.get("files", {})
+
+print(f"Corpus: {total_files} files · ~{total_words:,} words")
+for category in ["code", "document", "paper", "image", "video"]:
+    count = len(files.get(category, []))
+    if count > 0:
+        label = {"document": "docs", "paper": "papers", "image": "images", "video": "video"}.get(category, category)
+        print(f"  {label}:     {count} files")
+'
+```
 
 Then act on it:
 - If `total_files` is 0: stop with "No supported files found in [path]."
