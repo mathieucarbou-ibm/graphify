@@ -610,9 +610,10 @@ _PLATFORM_CONFIG: dict[str, dict] = {
     },
     "bob": {
       "skill_file": "skill-bob.md",
-      "skill_dst": Path(".bob") / "skills" / "graphify" / "SKILL.md",
+      "skill_dst": Path(".bob") / "commands" / "graphify.md",
       "claude_md": False,
       "skill_refs": "bob",
+      "skill_refs_dst": Path(".bob") / "skills" / "graphify",
     },
 }
 
@@ -2065,34 +2066,64 @@ def claude_uninstall(project_dir: Path | None = None, *, project: bool = False) 
     _uninstall_claude_hook(project_dir or Path("."))
 
 def bob_install(project_dir: Path | None = None) -> None:
-    """Write the graphify section to global ~/.bob/AGENTS.md only."""
+    """Install graphify command and reference files for Bob."""
+    # Copy skill file to ~/.bob/commands/graphify.md (command, not skill)
+    skill_src = Path(__file__).parent / "skill-bob.md"
+    if not skill_src.exists():
+        print(f"error: skill-bob.md not found in package - reinstall graphify", file=sys.stderr)
+        sys.exit(1)
+    
+    skill_dst = Path.home() / ".bob" / "commands" / "graphify.md"
+    skill_dst.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy(skill_src, skill_dst)
+    print(f"  skill installed  ->  {skill_dst}")
+    
+    # Copy reference files to ~/.bob/skills/graphify/references/
+    refs_src = Path(__file__).parent / "skills" / "bob" / "references"
+    if refs_src.exists():
+        refs_dst = Path.home() / ".bob" / "skills" / "graphify" / "references"
+        refs_dst.parent.mkdir(parents=True, exist_ok=True)
+        if refs_dst.exists():
+            shutil.rmtree(refs_dst)
+        shutil.copytree(refs_src, refs_dst)
+        print(f"  references       ->  {refs_dst}")
+    
+    # Write version stamp
+    version_file = Path.home() / ".bob" / "commands" / ".graphify_version"
+    version_file.write_text(__version__, encoding="utf-8")
+    
     # Write to global ~/.bob/AGENTS.md
     global_agents = Path.home() / ".bob" / "AGENTS.md"
     if global_agents.exists():
         content = global_agents.read_text(encoding="utf-8")
         if _AGENTS_MD_MARKER not in content:
             global_agents.write_text(content.rstrip() + "\n\n" + _AGENTS_MD_SECTION, encoding="utf-8")
-            print(f"graphify section written to {global_agents}")
+            print(f"  AGENTS.md        ->  graphify section written to {global_agents}")
         else:
-            print(f"graphify already configured in {global_agents}")
+            print(f"  AGENTS.md        ->  already configured (no change)")
     else:
         global_agents.parent.mkdir(parents=True, exist_ok=True)
         global_agents.write_text(_AGENTS_MD_SECTION, encoding="utf-8")
-        print(f"graphify section written to {global_agents}")
+        print(f"  AGENTS.md        ->  created at {global_agents}")
 
     print()
-    print("Bob will now check the knowledge graph before answering")
-    print("codebase questions and rebuild it after code changes.")
+    print("Bob will now recognize /graphify as a command.")
 
 
 def bob_uninstall(project_dir: Path | None = None) -> None:
-    """Remove the graphify skill and section from ~/.bob/AGENTS.md."""
-    # Remove the skill file using the standard removal function
+    """Remove the graphify command, reference files, and section from ~/.bob/AGENTS.md."""
+    # Remove the command file using the standard removal function
     _remove_skill_file("bob")
+    
+    # Remove the references directory
+    refs_dir = Path.home() / ".bob" / "skills" / "graphify"
+    if refs_dir.exists():
+        shutil.rmtree(refs_dir)
+        print(f"  references removed  ->  {refs_dir}")
     
     # Clean up old installation paths (for users upgrading from previous versions)
     old_paths = [
-        Path.home() / ".bob" / "commands" / "graphify.md",  # command file (no longer used)
+        Path.home() / ".bob" / "skills" / "graphify" / "SKILL.md",  # old skill-based approach
         Path.home() / ".bob" / "commands" / "graphify" / "graphify.md",  # subdirectory version
         Path.home() / ".bob" / "commands" / ".graphify_version",
     ]
@@ -2102,7 +2133,7 @@ def bob_uninstall(project_dir: Path | None = None) -> None:
                 shutil.rmtree(old_path)
             else:
                 old_path.unlink()
-            print(f"Removed old installation: {old_path}")
+            print(f"  old path removed    ->  {old_path}")
 
     # Remove the graphify section from global ~/.bob/AGENTS.md
     global_agents = Path.home() / ".bob" / "AGENTS.md"

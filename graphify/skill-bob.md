@@ -80,7 +80,7 @@ Follow these steps in order. Do not skip steps.
 
 ### Step 0 - GitHub repos and multi-path merge (only if a URL or several paths)
 
-Only when the path is one or more `https://github.com/...` URLs, or several local subfolders to merge. See `references/github-and-merge.md` for the clone, cross-repo merge, and monorepo flow, then continue with the resolved local path. A plain local path skips this step.
+Only when the path is one or more `https://github.com/...` URLs, or several local subfolders to merge. See `../skills/graphify/references/github-and-merge.md` for the clone, cross-repo merge, and monorepo flow, then continue with the resolved local path. A plain local path skips this step.
 
 ### Step 1 - Ensure graphify is installed
 
@@ -163,7 +163,7 @@ Then act on it:
 
 ### Step 2.5 - Video and audio (only if video files detected)
 
-Skip this step entirely if `detect` returned zero `video` files. When the corpus has video or audio, see `references/transcribe.md` to transcribe them to text first, then treat the transcripts as doc files in Step 3.
+Skip this step entirely if `detect` returned zero `video` files. When the corpus has video or audio, see `../skills/graphify/references/transcribe.md` to transcribe them to text first, then treat the transcripts as doc files in Step 3.
 
 ### Step 3 - Extract entities and relationships
 
@@ -500,7 +500,7 @@ graphify export html  # auto-aggregates to community view if graph > 5000 nodes
 
 ### Steps 6b-8 - Wiki, Neo4j, FalkorDB, SVG, GraphML, MCP, benchmark (only on their flags)
 
-These run only when their flag is present (`--wiki`, `--neo4j`/`--neo4j-push`, `--falkordb`/`--falkordb-push`, `--svg`, `--graphml`, `--mcp`) or, for the token-reduction benchmark, when `total_words` exceeds 5,000. A default run with no export flags skips all of them. See `references/exports.md` for each one. Run any `--wiki` export before Step 9 cleanup so `.graphify_labels.json` is still available.
+These run only when their flag is present (`--wiki`, `--neo4j`/`--neo4j-push`, `--falkordb`/`--falkordb-push`, `--svg`, `--graphml`, `--mcp`) or, for the token-reduction benchmark, when `total_words` exceeds 5,000. A default run with no export flags skips all of them. See `../skills/graphify/references/exports.md` for each one. Run any `--wiki` export before Step 9 cleanup so `.graphify_labels.json` is still available.
 
 ---
 
@@ -604,7 +604,7 @@ fi
 
 ## For --update and --cluster-only
 
-Both are non-default subcommands. `--update` re-extracts only new or changed files; `--cluster-only` reruns clustering on the existing graph. See `references/update.md` for both flows.
+Both are non-default subcommands. `--update` re-extracts only new or changed files; `--cluster-only` reruns clustering on the existing graph. See `../skills/graphify/references/update.md` for both flows.
 
 ---
 
@@ -623,19 +623,19 @@ Before traversal, expand the question against the graph's own vocabulary so a wo
 - Follow-up: `graphify query "TMS management API" --global` ← MUST include --global
 - Wrong: `graphify query "TMS management API"` ← Missing --global will cause "graph file not found" error
 
-For that vocab-expansion step, the BFS/DFS traversal modes, the `--budget` cap, the NetworkX fallback, `save-result` feedback, and the `/graphify path` and `/graphify explain` flows, see `references/query.md`.
+For that vocab-expansion step, the BFS/DFS traversal modes, the `--budget` cap, the NetworkX fallback, `save-result` feedback, and the `/graphify path` and `/graphify explain` flows, see `../skills/graphify/references/query.md`.
 
 ---
 
 ## For /graphify add and --watch
 
-Neither is part of the default build. When the user runs `/graphify add <url>` to fetch a URL into the corpus, or passes `--watch` to auto-rebuild on file changes, see `references/add-watch.md`.
+Neither is part of the default build. When the user runs `/graphify add <url>` to fetch a URL into the corpus, or passes `--watch` to auto-rebuild on file changes, see `../skills/graphify/references/add-watch.md`.
 
 ---
 
 ## For the commit hook and native BOB.md integration
 
-When the user asks to install the post-commit auto-rebuild hook or wire graphify into a project's BOB.md, see `references/hooks.md`.
+When the user asks to install the post-commit auto-rebuild hook or wire graphify into a project's BOB.md, see `../skills/graphify/references/hooks.md`.
 
 ---
 
