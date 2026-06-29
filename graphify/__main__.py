@@ -610,7 +610,7 @@ _PLATFORM_CONFIG: dict[str, dict] = {
     },
     "bob": {
       "skill_file": "skill-bob.md",
-      "skill_dst": Path(".bob") / "commands" / "graphify" / "graphify.md",
+      "skill_dst": Path(".bob") / "skills" / "graphify" / "SKILL.md",
       "claude_md": False,
       "skill_refs": "bob",
     },
@@ -735,6 +735,20 @@ def install(platform: str = "claude", *, project: bool = False, project_dir: Pat
             )
             sys.exit(1)
         command_dst = Path.home() / ".config" / "kilo" / "command" / "graphify.md"
+        command_dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy(command_src, command_dst)
+        print(f"  command installed ->  {command_dst}")
+    
+    if platform == "bob":
+        # Bob also supports a native /graphify command file.
+        command_src = Path(__file__).parent / "command-bob.md"
+        if not command_src.exists():
+            print(
+                f"error: command-bob.md not found in package - reinstall graphify",
+                file=sys.stderr,
+            )
+            sys.exit(1)
+        command_dst = Path.home() / ".bob" / "commands" / "graphify.md"
         command_dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy(command_src, command_dst)
         print(f"  command installed ->  {command_dst}")
@@ -2083,18 +2097,28 @@ def bob_install(project_dir: Path | None = None) -> None:
 
 
 def bob_uninstall(project_dir: Path | None = None) -> None:
-    """Remove the graphify command file and section from ~/.bob/AGENTS.md."""
+    """Remove the graphify skill, command file, and section from ~/.bob/AGENTS.md."""
     # Remove the skill file using the standard removal function
     _remove_skill_file("bob")
     
-    # Also clean up old installation path (for users upgrading from flat structure)
-    old_command_file = Path.home() / ".bob" / "commands" / "graphify.md"
-    if old_command_file.exists():
-        old_command_file.unlink()
-        print(f"Removed old command file: {old_command_file}")
-    old_version_file = Path.home() / ".bob" / "commands" / ".graphify_version"
-    if old_version_file.exists():
-        old_version_file.unlink()
+    # Remove the command file
+    command_file = Path.home() / ".bob" / "commands" / "graphify.md"
+    if command_file.exists():
+        command_file.unlink()
+        print(f"Removed command file: {command_file}")
+    
+    # Also clean up old installation paths (for users upgrading from previous versions)
+    old_paths = [
+        Path.home() / ".bob" / "commands" / "graphify" / "graphify.md",  # subdirectory version
+        Path.home() / ".bob" / "commands" / ".graphify_version",
+    ]
+    for old_path in old_paths:
+        if old_path.exists():
+            if old_path.is_dir():
+                shutil.rmtree(old_path)
+            else:
+                old_path.unlink()
+            print(f"Removed old installation: {old_path}")
 
     # Remove the graphify section from global ~/.bob/AGENTS.md
     global_agents = Path.home() / ".bob" / "AGENTS.md"
