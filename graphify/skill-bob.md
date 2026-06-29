@@ -27,6 +27,8 @@ Turn any folder of files into a navigable knowledge graph with community detecti
 /graphify <path> --graphml                            # export graph.graphml (Gephi, yEd)
 /graphify <path> --neo4j                              # generate graphify-out/cypher.txt for Neo4j
 /graphify <path> --neo4j-push bolt://localhost:7687   # push directly to Neo4j
+/graphify <path> --falkordb                           # generate graphify-out/cypher.txt for FalkorDB
+/graphify <path> --falkordb-push falkordb://localhost:6379   # push directly to FalkorDB
 /graphify <path> --mcp                                # start MCP stdio server for agent access
 /graphify <path> --watch                              # watch folder, auto-rebuild on code changes (no LLM needed)
 /graphify <path> --wiki                               # build agent-crawlable wiki (index.md + one article per community)
@@ -77,28 +79,9 @@ If the path argument starts with `https://github.com/` or `http://github.com/`, 
 
 Follow these steps in order. Do not skip steps.
 
-### Step 0 - Clone GitHub repo(s) (only if a GitHub URL was given)
+### Step 0 - GitHub repos and multi-path merge (only if a URL or several paths)
 
-**Single repo:**
-```bash
-LOCAL_PATH=$(graphify clone <github-url> [--branch <branch>])
-# Use LOCAL_PATH as the target for all subsequent steps
-```
-
-**Multiple repos (cross-repo graph):**
-```bash
-# Clone each repo, run the full pipeline on each, then merge
-graphify clone <url1>   # → ~/.graphify/repos/<owner1>/<repo1>
-graphify clone <url2>   # → ~/.graphify/repos/<owner2>/<repo2>
-# Run /graphify on each local path to produce their graph.json files
-# Then merge:
-graphify merge-graphs \
-  ~/.graphify/repos/<owner1>/<repo1>/graphify-out/graph.json \
-  ~/.graphify/repos/<owner2>/<repo2>/graphify-out/graph.json \
-  --out graphify-out/cross-repo-graph.json
-```
-
-Graphify clones into `~/.graphify/repos/<owner>/<repo>` and reuses existing clones on repeat runs. Each node in the merged graph carries a `repo` attribute so you can filter by origin.
+Only when the path is one or more `https://github.com/...` URLs, or several local subfolders to merge. See `references/github-and-merge.md` for the clone, cross-repo merge, and monorepo flow, then continue with the resolved local path. A plain local path skips this step.
 
 ### Step 1 - Ensure graphify is installed
 
@@ -181,7 +164,7 @@ Then act on it:
 
 ### Step 2.5 - Video and audio (only if video files detected)
 
-Skip this step entirely if `detect` returned zero `video` files. When the corpus has video or audio, see `graphify/skills/bob/references/transcribe.md` to transcribe them to text first, then treat the transcripts as doc files in Step 3.
+Skip this step entirely if `detect` returned zero `video` files. When the corpus has video or audio, see `references/transcribe.md` to transcribe them to text first, then treat the transcripts as doc files in Step 3.
 
 ### Step 3 - Extract entities and relationships
 
@@ -518,59 +501,7 @@ graphify export html  # auto-aggregates to community view if graph > 5000 nodes
 
 ### Steps 6b-8 - Wiki, Neo4j, FalkorDB, SVG, GraphML, MCP, benchmark (only on their flags)
 
-These run only when their flag is present (`--wiki`, `--neo4j`/`--neo4j-push`, `--falkordb`/`--falkordb-push`, `--svg`, `--graphml`, `--mcp`) or, for the token-reduction benchmark, when `total_words` exceeds 5,000. A default run with no export flags skips all of them.
-
-**For --wiki:**
-```bash
-$(cat graphify-out/.graphify_python) -c '
-import sys, json
-from graphify.build import build_from_json
-from graphify.wiki import to_wiki
-from pathlib import Path
-
-extraction = json.loads(Path("graphify-out/.graphify_extract.json").read_text(encoding="utf-8"))
-analysis   = json.loads(Path("graphify-out/.graphify_analysis.json").read_text(encoding="utf-8"))
-
-G = build_from_json(extraction, root="INPUT_PATH", directed=IS_DIRECTED)
-communities = {int(k): v for k, v in analysis["communities"].items()}
-labels = {int(k): "Community " + str(k) for k in communities}
-cohesion = {int(k): v for k, v in analysis.get("cohesion", {}).items()}
-god_nodes_data = analysis.get("gods", [])
-
-wiki_dir = Path("graphify-out/wiki")
-count = to_wiki(G, communities, wiki_dir, community_labels=labels, cohesion=cohesion, god_nodes_data=god_nodes_data)
-print(f"✓ Wiki generated: {count} articles + index.md in {wiki_dir}")
-'
-```
-
-**For --neo4j or --neo4j-push:**
-```bash
-graphify export neo4j
-# or: graphify export neo4j --push bolt://localhost:7687
-```
-
-**For --falkordb or --falkordb-push:**
-```bash
-graphify export falkordb
-# or: graphify export falkordb --push falkordb://localhost:6379
-```
-
-**For --svg:**
-```bash
-graphify export svg
-```
-
-**For --graphml:**
-```bash
-graphify export graphml
-```
-
-**For --mcp:**
-```bash
-graphify serve --mcp
-```
-
-Run any `--wiki` export before Step 9 cleanup so `.graphify_labels.json` is still available.
+These run only when their flag is present (`--wiki`, `--neo4j`/`--neo4j-push`, `--falkordb`/`--falkordb-push`, `--svg`, `--graphml`, `--mcp`) or, for the token-reduction benchmark, when `total_words` exceeds 5,000. A default run with no export flags skips all of them. See `references/exports.md` for each one. Run any `--wiki` export before Step 9 cleanup so `.graphify_labels.json` is still available.
 
 ---
 
@@ -674,228 +605,38 @@ fi
 
 ## For --update and --cluster-only
 
-Both are non-default subcommands. `--update` re-extracts only new or changed files; `--cluster-only` reruns clustering on the existing graph.
-
-**For --update:**
-
-Incremental update - re-extract only new or changed files since the last run:
-
-```bash
-graphify update
-# or: graphify update <path>
-```
-
-This compares the current file manifest against the saved one, extracts only changed files, and merges them into the existing graph.
-
-**For --cluster-only:**
-
-Rerun clustering on the existing graph without re-extraction:
-
-```bash
-graphify cluster-only
-# or: graphify cluster-only <path>
-```
-
-This is useful when you want to try different clustering parameters or regenerate community labels without the cost of re-extraction.
+Both are non-default subcommands. `--update` re-extracts only new or changed files; `--cluster-only` reruns clustering on the existing graph. See `references/update.md` for both flows.
 
 ---
 
 ## For /graphify query
 
-Answer a question by traversing the graph.
+When `graphify-out/graph.json` already exists and the user asks a question about the corpus, answer from the graph rather than rebuilding it:
 
 ```bash
-graphify query "QUESTION"
-# or: graphify query "QUESTION" --dfs --budget 3000
-# or: graphify query "QUESTION" --global  # query across all registered projects
+graphify query "<question>"
 ```
 
-Replace `QUESTION` with the user's actual question.
-
-**Using `--global` flag:** When the user wants to search across multiple registered projects (not just the current one), add the `--global` flag. This queries the global graph at `~/.graphify/global-graph.json` which contains all projects registered via `graphify global add`.
-
-**IMPORTANT for global queries:** When using `--global`, the query result includes nodes from multiple projects. Each node contains:
-- `source_file`: Relative path within the project (e.g., "src/main.py")
-- `project_root`: Absolute path to the project root (e.g., "/Users/mat/projects/myapp")
-- `repo`: Repository tag for identification
-
-**To read files referenced in global query results:**
-
-Parse the query output JSON and for each node you want to cite, resolve the absolute path:
-
-```python
-from pathlib import Path
-import json
-
-# After running the query command, parse the output
-result = json.loads(query_output)
-for node in result.get("nodes", []):
-    if node.get("project_root") and node.get("source_file"):
-        absolute_path = str(Path(node["project_root"]) / node["source_file"])
-        # Now use read_file tool with absolute_path to get the actual content
-```
-
-Answer using **only** what the graph output contains. Quote `source_location` when citing a specific fact. If the graph lacks enough information, say so - do not hallucinate edges.
+Before traversal, expand the question against the graph's own vocabulary so a wording mismatch does not collapse the answer to noise. If the `graphify query` CLI is unavailable, fall back to an inline NetworkX traversal of `graphify-out/graph.json`. Answer using only what the graph output contains, and quote `source_location` when citing a specific fact.
 
 **CRITICAL: Preserving --global flag in follow-up queries:** If the initial query used `--global`, ALL subsequent or refined queries in the same conversation MUST also include `--global`. When you decide to search for more specific information or refine your query, always check if the original command had `--global` and preserve it. Example:
 - Initial: `graphify query "TMS statistics" --global`
 - Follow-up: `graphify query "TMS management API" --global` ← MUST include --global
 - Wrong: `graphify query "TMS management API"` ← Missing --global will cause "graph file not found" error
 
-After writing the answer, save it back into the graph so it improves future queries:
-
-```bash
-$(cat graphify-out/.graphify_python) -m graphify save-result --question "QUESTION" --answer "ANSWER" --type query --nodes NODE1 NODE2
-```
-
-Replace `QUESTION` with the question, `ANSWER` with your full answer text, `SOURCE_NODES` with the list of node labels you cited. This closes the feedback loop: the next `--update` will extract this Q&A as a node in the graph.
+For that vocab-expansion step, the BFS/DFS traversal modes, the `--budget` cap, the NetworkX fallback, `save-result` feedback, and the `/graphify path` and `/graphify explain` flows, see `references/query.md`.
 
 ---
 
-## For /graphify path
+## For /graphify add and --watch
 
-Find the shortest path between two named concepts in the graph.
-
-```bash
-graphify path "NODE_A" "NODE_B"
-# or: graphify path "NODE_A" "NODE_B" --global  # find path across all registered projects
-```
-
-Replace `NODE_A` and `NODE_B` with the actual concept names.
-
-**Using `--global` flag:** Add `--global` to search for paths across all registered projects in the global graph, not just the current project. This is useful when concepts span multiple codebases.
-
-**IMPORTANT for global path queries:** When using `--global`, nodes in the path will have `project_root` and `source_file` attributes. To read the actual source files:
-
-```python
-from pathlib import Path
-import json
-
-# Parse the path result
-for node in path_nodes:
-    if node.get("project_root") and node.get("source_file"):
-        absolute_path = str(Path(node["project_root"]) / node["source_file"])
-        # Use read_file tool with absolute_path
-```
-
-Then explain the path in plain language - what each hop means, why it's significant. Include file locations using the absolute paths you resolved.
-
-**CRITICAL: Preserving --global flag in follow-up queries:** If the initial query used `--global`, ALL subsequent or refined queries in the same conversation MUST also include `--global`. When you decide to search for more specific information or refine your query, always check if the original command had `--global` and preserve it.
-
-After writing the explanation, save it back:
-
-```bash
-$(cat graphify-out/.graphify_python) -m graphify save-result --question "Path from NODE_A to NODE_B" --answer "ANSWER" --type path_query --nodes NODE_A NODE_B
-```
+Neither is part of the default build. When the user runs `/graphify add <url>` to fetch a URL into the corpus, or passes `--watch` to auto-rebuild on file changes, see `references/add-watch.md`.
 
 ---
 
-## For /graphify explain
+## For the commit hook and native BOB.md integration
 
-Give a plain-language explanation of a single node - everything connected to it.
-
-```bash
-graphify explain "NODE_NAME"
-# or: graphify explain "NODE_NAME" --global  # explain using global graph context
-```
-
-Replace `NODE_NAME` with the concept the user asked about.
-
-**Using `--global` flag:** Add `--global` to include connections from all registered projects in the global graph, providing a broader context for the explanation.
-
-**IMPORTANT for global explain queries:** When using `--global`, the node and its connections may span multiple projects. Each node contains `project_root` and `source_file`. To read source files:
-
-```python
-from pathlib import Path
-import json
-
-# Parse the explain result
-for node in [main_node] + connected_nodes:
-    if node.get("project_root") and node.get("source_file"):
-        absolute_path = str(Path(node["project_root"]) / node["source_file"])
-        # Use read_file tool with absolute_path
-```
-
-Then write a 3-5 sentence explanation of what this node is, what it connects to, and why those connections are significant. Use the source locations as citations, showing the absolute paths.
-
-**CRITICAL: Preserving --global flag in follow-up queries:** If the initial query used `--global`, ALL subsequent or refined queries in the same conversation MUST also include `--global`. When you decide to search for more specific information or refine your query, always check if the original command had `--global` and preserve it.
-
-After writing the explanation, save it back:
-
-```bash
-$(cat graphify-out/.graphify_python) -m graphify save-result --question "Explain NODE_NAME" --answer "ANSWER" --type explain --nodes NODE_NAME
-```
-
----
-
-## For /graphify add
-
-Fetch a URL and add it to the corpus, then update the graph.
-
-```bash
-$(cat graphify-out/.graphify_python) -c '
-import sys
-from graphify.ingest import ingest
-from pathlib import Path
-
-try:
-    out = ingest("URL", Path("./raw"), author="AUTHOR", contributor="CONTRIBUTOR")
-    print(f"Saved to {out}")
-except ValueError as e:
-    print(f"error: {e}", file=sys.stderr)
-    sys.exit(1)
-except RuntimeError as e:
-    print(f"error: {e}", file=sys.stderr)
-    sys.exit(1)
-'
-```
-
-Replace `URL` with the actual URL, `AUTHOR` with the user's name if provided, `CONTRIBUTOR` likewise. If the command exits with an error, tell the user what went wrong - do not silently continue. After a successful save, automatically run the `--update` pipeline on `./raw` to merge the new file into the existing graph.
-
-Supported URL types (auto-detected):
-- YouTube / any video URL → audio downloaded via yt-dlp, transcribed to `.txt` on next run (requires `pip install 'graphifyy[video]'`)
-- Twitter/X → fetched via oEmbed, saved as `.md` with tweet text and author
-- arXiv → abstract + metadata saved as `.md`
-- PDF → downloaded as `.pdf`
-- Images (.png/.jpg/.webp) → downloaded, Claude vision extracts on next run
-- Any webpage → converted to markdown via html2text
-
----
-
-## For --watch
-
-Start a background watcher that monitors a folder and auto-updates the graph when files change.
-
-```bash
-python3 -m graphify.watch INPUT_PATH --debounce 3
-```
-
-Replace INPUT_PATH with the folder to watch. Behavior depends on what changed:
-
-- **Code files only (.py, .ts, .go, etc.):** re-runs AST extraction + rebuild + cluster immediately, no LLM needed. `graph.json` and `GRAPH_REPORT.md` are updated automatically.
-- **Docs, papers, or images:** writes a `graphify-out/needs_update` flag and prints a notification to run `/graphify --update` (LLM semantic re-extraction required).
-
-Debounce (default 3s): waits until file activity stops before triggering, so a wave of parallel agent writes doesn't trigger a rebuild per file.
-
-Press Ctrl+C to stop.
-
-For agentic workflows: run `--watch` in a background terminal. Code changes from agent waves are picked up automatically between waves. If agents are also writing docs or notes, you'll need a manual `/graphify --update` after those waves.
-
----
-
-## For git commit hook
-
-Install a post-commit hook that auto-rebuilds the graph after every commit. No background process needed - triggers once per commit, works with any editor.
-
-```bash
-graphify hook install    # install
-graphify hook uninstall  # remove
-graphify hook status     # check
-```
-
-After every `git commit`, the hook detects which code files changed (via `git diff HEAD~1`), re-runs AST extraction on those files, and rebuilds `graph.json` and `GRAPH_REPORT.md`. Doc/image changes are ignored by the hook - run `/graphify --update` manually for those.
-
-If a post-commit hook already exists, graphify appends to it rather than replacing it.
+When the user asks to install the post-commit auto-rebuild hook or wire graphify into a project's BOB.md, see `references/hooks.md`.
 
 ---
 
