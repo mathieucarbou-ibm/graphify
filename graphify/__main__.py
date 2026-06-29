@@ -739,20 +739,6 @@ def install(platform: str = "claude", *, project: bool = False, project_dir: Pat
         shutil.copy(command_src, command_dst)
         print(f"  command installed ->  {command_dst}")
     
-    if platform == "bob":
-        # Bob also supports a native /graphify command file.
-        command_src = Path(__file__).parent / "command-bob.md"
-        if not command_src.exists():
-            print(
-                f"error: command-bob.md not found in package - reinstall graphify",
-                file=sys.stderr,
-            )
-            sys.exit(1)
-        command_dst = Path.home() / ".bob" / "commands" / "graphify.md"
-        command_dst.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy(command_src, command_dst)
-        print(f"  command installed ->  {command_dst}")
-
     if cfg["claude_md"]:
         # Register in the matching Claude Code scope.
         claude_md = (project_dir / ".claude" / "CLAUDE.md") if project else Path.home() / ".claude" / "CLAUDE.md"
@@ -826,10 +812,13 @@ _BOB_MD_SECTION = """\
 
 This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
 
+When the user types `/graphify`, invoke the `skill` tool with `skill: "graphify"` before doing anything else.
+
 Rules:
-- ALWAYS read graphify-out/GRAPH_REPORT.md before reading any source files, running grep/glob searches, or answering codebase questions. The graph is your primary map of the codebase.
-- IF graphify-out/wiki/index.md EXISTS, navigate it instead of reading raw files
-- For cross-module "how does X relate to Y" questions, prefer `graphify query "<question>"`, `graphify path "<A>" "<B>"`, or `graphify explain "<concept>"` over grep — these traverse the graph's EXTRACTED + INFERRED edges instead of scanning files
+- For codebase questions, first run `graphify query "<question>"` when graphify-out/graph.json exists. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
+- Dirty graphify-out/ files are expected after hooks or incremental updates; dirty graph files are not a reason to skip graphify. Only skip graphify if the task is about stale or incorrect graph output, or the user explicitly says not to use it.
+- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
+- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
 - After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
 """
 
