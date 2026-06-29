@@ -2097,18 +2097,13 @@ def bob_install(project_dir: Path | None = None) -> None:
 
 
 def bob_uninstall(project_dir: Path | None = None) -> None:
-    """Remove the graphify skill, command file, and section from ~/.bob/AGENTS.md."""
+    """Remove the graphify skill and section from ~/.bob/AGENTS.md."""
     # Remove the skill file using the standard removal function
     _remove_skill_file("bob")
     
-    # Remove the command file
-    command_file = Path.home() / ".bob" / "commands" / "graphify.md"
-    if command_file.exists():
-        command_file.unlink()
-        print(f"Removed command file: {command_file}")
-    
-    # Also clean up old installation paths (for users upgrading from previous versions)
+    # Clean up old installation paths (for users upgrading from previous versions)
     old_paths = [
+        Path.home() / ".bob" / "commands" / "graphify.md",  # command file (no longer used)
         Path.home() / ".bob" / "commands" / "graphify" / "graphify.md",  # subdirectory version
         Path.home() / ".bob" / "commands" / ".graphify_version",
     ]
